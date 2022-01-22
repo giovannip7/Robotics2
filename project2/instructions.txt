@@ -1,0 +1,54 @@
+STUDENTS
+10537082, Federico Novaro
+10745779, Giovanni Porcellato
+10799907, Francesco Sacchi
+
+
+--HOW TO RUN--
+
+To create a new map or to see the construction of a map in real-time:
+	roslaunch project2 gmapL.launch
+
+To perform localization of the robot in the previously built map:
+	roslaunch project2 localiztion.launch
+
+ATTENTION: Please, shut down a launcher before starting the other one.
+Needless to say, both launchers need a bag running to perform their activities (bags need to be played after launching the launchers)
+
+--LAUNCHERS--
+
+gmapL.launch
+This launcher starts gmapping on a prescribed bag (we used the bag 3.bag) using the gmapping settings as specified on the file gmapping.launch.xml in order to produce a map of the environment were the robot is roaming. In order to relate correctly the laser scan with the robot base_link (the robot's own reference frame) we have used a static transformation imposing a rottion of about 93 deg (1.63 rad), this angle has been assessed by looking at the behaviour of the robot in the bag calib.bag and tuned in order to refine the mapping process. 
+This launcher also launches rviz in order to correctly visualize the mapping process.
+We have set-up gmapping in order to use the sout/odom odomety as global_frame_id, moreover we have set the following parameters as follow
+
+	maxUrange - 20 (from the laser manufacturer's data) 
+	The maximum usable range of the laser. A beam is cropped to this value. 
+	
+	maxRange - 20.5 (it's a good practice to set it a little higher than maxUrange)
+	The maximum range of the sensor.
+
+	lsigma - 0.012 (from the laser manufacturer data)
+	The sigma of a beam used for likelihood computation 
+
+all the other values have been left to the standard values, as seen in class.
+
+imu_tools.launch
+it is a standard imu filter for the camera accelerometer, it is launched by the launcher localization.launch. We've decided to put it outside of the main launcher in order to have a leaner code.
+
+localization.launch
+This launcher fuses together an EKF localization and an amcl localization, also calling the imu filter seen above. We start by calling the imu filter and loading the map obtained by gmapping in the map server (further explained in the section MAP). Then we define some static tf useful to set relationshib between the different components of our robot and the one related to the laser as seen above.
+then we can start the proper localization.
+
+EKF 
+We have setted the ekf localization in order to use the odometry provided by the manufacturer (the best available), the one from the camera (less optimal), the filtered data from the camera accelerometer and the data from the pixhawk mini (the best imu) in order to fix the drifting of the standard odometry. we have related all these transformation to the scout/odom ref. frame. We have selected a freq of the EKF filter of 15 in order to have a system less lagging as possible. We have also decided tho remove the gravitational acceleration from the imu since we are in a 2D space and it returned some minor warnings.
+
+AMCL
+This launcher performs a transformation between scout_odom and map, correcting the odometry drift. It transforms incoming laser scans into the odometry frame. 
+In order to complete this task we began by setting all values to default. Afterwards we experimentally tuned AMCL and we achieved major improvements by selecting an odom_model_type named as omni-corrected. As a consequence lowering odom_alpha values led to greater accuracy and stability. 
+Then we selected laser range accordingly to supplier data measures and we lowered by 50% the transformation tolerance.
+In order to improve the orientation of the localization in the first stage we have enlarged the uncertainties on the first pose so that no matter the initial positioning (in a certain range of error) we'll always get the best localization possible.
+
+--MAP--
+
+The map has been obtained using the gmapping launcher explained before (gmapL.launch) on the bag 3.bag. We have chosen this bag since the resulting map looked the most complete between all the 3.

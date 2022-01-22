@@ -1,0 +1,144 @@
+<launch>
+
+ <!-- IMU FILTER -->
+
+  <include file="$(find project2)/launch/imu_tools.launch">
+  </include>
+
+ <!-- MAP LOADING -->
+
+  <arg name="map_file"       default="$(find project2)/map/mapB3.yaml"/>
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)">
+    <param name="frame_id" value="map"/>
+  </node>
+
+ <!-- AMCL -->
+
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+
+  <include file="$(find project2)/launch/amcl.launch.xml">
+    <arg name="scan_topic" value="scan"/>
+    <arg name="use_map_topic" value="true"/>
+    <arg name="initial_pose_x" value="$(arg initial_pose_x)"/>
+    <arg name="initial_pose_y" value="$(arg initial_pose_y)"/>
+    <arg name="initial_pose_a" value="$(arg initial_pose_a)"/>
+  </include>
+
+ <!-- SOME REQUIRED TF -->
+
+    <node name="world_to_map" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 world map 100"/>
+    <node name="odom_to_odom" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 scout/odom odom 100"/>
+    <node name="odom_to_camera" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 scout/odom camera_odom_frame 100"/>
+    <node name="bl_to_bl" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 scout/base_link base_link 100"/>
+    <node pkg="tf" type="static_transform_publisher" name="scan2baseTr" args="0 0 0 1.63 0 0 scout/base_link laser 100"/>
+
+
+    <param name="/use_sim_time" value="true" />
+
+ <!-- LOCALIZATION -->
+
+  <node name="ekf_node1" pkg="robot_localization" type="ekf_localization_node" clear_params="true">
+
+      <param name="frequency" value="15"/>
+      <param name="sensor_timeout" value="0.08"/>
+      <param name="two_d_mode" value="true"/>
+
+      <param name="map_frame" value="map"/>
+      <param name="odom_frame" value="scout/odom"/>
+      <param name="base_link_frame" value="scout/base_link"/>
+      <param name="world_frame" value="scout/odom"/>
+
+      <param name="transform_time_offset" value="1"/>
+      <param name="transform_timeout" value="1"/>
+
+      <param name="odom0" value="/odom"/>
+      <param name="imu0" value="/mavros/imu/data_raw"/>
+      <param name="odom1" value="/camera/odom/sample"/>
+      <param name="imu1" value="/imu/final1"/>
+      <rosparam param="odom0_config">[true,  true,  false,
+                                      false, false, true,
+                                      true,  true,  false,
+                                      false, false, true,
+                                      false, false, false]</rosparam>
+      <rosparam param="imu0_config">[false,  false,  false,
+                                      false, false, false,
+                                      false, false, false,
+                                      true, true, true,
+                                      true, true, true]</rosparam>
+      <rosparam param="odom1_config">[true,  false,  false,
+                                      false, false, false,
+                                      true, true, false,
+                                      false, false, true,
+                                      false, false, false]</rosparam>
+      <rosparam param="imu1_config">[false,  false,  false,
+                                      false, false, false,
+                                      false, false, false,
+                                      false, false, false,
+                                      true, true, true]</rosparam>
+
+
+      <param name="odom0_differential" value="false"/>
+      <param name="imu0_differential" value="false"/>
+      <param name="odom1_differential" value="false"/>
+      <param name="imu1_differential" value="false"/>
+
+      <param name="odom0_relative" value="true"/>
+      <param name="imu0_relative" value="false"/>
+      <param name="odom1_relative" value="true"/>
+      <param name="imu1_relative" value="false"/>
+
+      <param name="imu0_remove_gravitational_acceleration" value="true"/>
+      <param name="imu1_remove_gravitational_acceleration" value="true"/>
+
+      <param name="print_diagnostics" value="true"/>
+
+      <param name="odom0_queue_size" value="1"/>
+      <param name="imu0_queue_size" value="1"/>
+      <param name="odom1_queue_size" value="1"/>
+      <param name="imu1_queue_size" value="1"/>
+
+      <param name="debug"           value="false"/>
+      <param name="debug_out_file"  value="debug_ekf_localization.txt"/>
+
+      <rosparam param="process_noise_covariance">[0.05, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0.05, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0.06, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0.03, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0.03, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0.06, 0,     0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0.025, 0,     0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0.025, 0,    0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0.04, 0,    0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0.01, 0,    0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0.01, 0,    0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0.02, 0,    0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01, 0,    0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.01, 0,
+                                                  0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.015]</rosparam>
+
+      <rosparam param="initial_estimate_covariance">[1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    1e-9, 0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    1e-9, 0,    0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    1e-9, 0,    0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    1e-9, 0,     0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-9,  0,     0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     1e-9,  0,     0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     1e-9,  0,    0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     1e-9, 0,    0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    1e-9, 0,
+                                                     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    1e-9]</rosparam>
+
+    </node>
+
+<!-- VISUALIZATION -->
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find project2)/rviz/localization.rviz"/>
+
+</launch>
